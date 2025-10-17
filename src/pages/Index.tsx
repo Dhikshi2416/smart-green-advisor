@@ -3,7 +3,8 @@ import { EnergyMetrics } from "@/components/EnergyMetrics";
 import { EnergyChart } from "@/components/EnergyChart";
 import { DeviceList, getDeviceIcon } from "@/components/DeviceList";
 import { AIRecommendations } from "@/components/AIRecommendations";
-import { Sun, Leaf } from "lucide-react";
+import { Sun, Leaf, LayoutDashboard, Zap, TrendingUp, Lightbulb } from "lucide-react";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
 const Index = () => {
   const [devices, setDevices] = useState([
@@ -89,11 +90,11 @@ const Index = () => {
   return (
     <div className="min-h-screen bg-background">
       {/* Header */}
-      <header className="border-b border-border bg-gradient-subtle">
-        <div className="container mx-auto px-4 py-6">
+      <header className="sticky top-0 z-50 border-b border-border bg-gradient-subtle backdrop-blur-sm">
+        <div className="container mx-auto px-4 py-4">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-3">
-              <div className="p-2 rounded-lg bg-gradient-primary">
+              <div className="p-2 rounded-lg bg-gradient-primary shadow-elegant hover:scale-105 transition-transform">
                 <Leaf className="h-6 w-6 text-white" />
               </div>
               <div>
@@ -101,7 +102,7 @@ const Index = () => {
                 <p className="text-sm text-muted-foreground">Energy Advisor Dashboard</p>
               </div>
             </div>
-            <div className="flex items-center gap-2 px-4 py-2 rounded-lg bg-solar/10 border border-solar/20">
+            <div className="flex items-center gap-2 px-4 py-2 rounded-lg bg-solar/10 border border-solar/20 animate-pulse">
               <Sun className="h-5 w-5 text-solar" />
               <span className="text-sm font-medium">Solar Active</span>
             </div>
@@ -110,23 +111,65 @@ const Index = () => {
       </header>
 
       {/* Main Content */}
-      <main className="container mx-auto px-4 py-8 space-y-8">
-        {/* Energy Metrics */}
-        <EnergyMetrics
-          totalConsumption={totalConsumption}
-          solarGeneration={solarGeneration}
-          netUsage={netUsage}
-          savings={savings}
-        />
+      <main className="container mx-auto px-4 py-8">
+        <Tabs defaultValue="dashboard" className="space-y-6">
+          <TabsList className="grid w-full max-w-2xl mx-auto grid-cols-4 h-auto">
+            <TabsTrigger value="dashboard" className="flex items-center gap-2 py-3">
+              <LayoutDashboard className="h-4 w-4" />
+              <span className="hidden sm:inline">Dashboard</span>
+            </TabsTrigger>
+            <TabsTrigger value="devices" className="flex items-center gap-2 py-3">
+              <Zap className="h-4 w-4" />
+              <span className="hidden sm:inline">Devices</span>
+            </TabsTrigger>
+            <TabsTrigger value="analytics" className="flex items-center gap-2 py-3">
+              <TrendingUp className="h-4 w-4" />
+              <span className="hidden sm:inline">Analytics</span>
+            </TabsTrigger>
+            <TabsTrigger value="advisor" className="flex items-center gap-2 py-3">
+              <Lightbulb className="h-4 w-4" />
+              <span className="hidden sm:inline">AI Advisor</span>
+            </TabsTrigger>
+          </TabsList>
 
-        {/* Charts and Devices */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          <EnergyChart data={chartData} />
-          <DeviceList devices={devicesWithHandlers} />
-        </div>
+          {/* Dashboard Tab */}
+          <TabsContent value="dashboard" className="space-y-6 animate-fade-in">
+            <EnergyMetrics
+              totalConsumption={totalConsumption}
+              solarGeneration={solarGeneration}
+              netUsage={netUsage}
+              savings={savings}
+            />
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+              <EnergyChart data={chartData} />
+              <AIRecommendations recommendations={recommendations.slice(0, 2)} />
+            </div>
+          </TabsContent>
 
-        {/* AI Recommendations */}
-        <AIRecommendations recommendations={recommendations} />
+          {/* Devices Tab */}
+          <TabsContent value="devices" className="space-y-6 animate-fade-in">
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+              <DeviceList devices={devicesWithHandlers} />
+              <EnergyChart data={chartData} />
+            </div>
+          </TabsContent>
+
+          {/* Analytics Tab */}
+          <TabsContent value="analytics" className="space-y-6 animate-fade-in">
+            <EnergyMetrics
+              totalConsumption={totalConsumption}
+              solarGeneration={solarGeneration}
+              netUsage={netUsage}
+              savings={savings}
+            />
+            <EnergyChart data={chartData} />
+          </TabsContent>
+
+          {/* AI Advisor Tab */}
+          <TabsContent value="advisor" className="space-y-6 animate-fade-in">
+            <AIRecommendations recommendations={recommendations} />
+          </TabsContent>
+        </Tabs>
       </main>
     </div>
   );
