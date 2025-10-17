@@ -63,6 +63,10 @@ export default {
         "gradient-primary": "var(--gradient-primary)",
         "gradient-subtle": "var(--gradient-subtle)",
         "gradient-glow": "var(--gradient-glow)",
+        "gradient-bg": "var(--gradient-bg)",
+      },
+      boxShadow: {
+        "elegant": "var(--shadow-elegant)",
       },
       borderRadius: {
         lg: "var(--radius)",
