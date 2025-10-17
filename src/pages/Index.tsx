@@ -3,6 +3,7 @@ import { EnergyMetrics } from "@/components/EnergyMetrics";
 import { EnergyChart } from "@/components/EnergyChart";
 import { DeviceList, getDeviceIcon } from "@/components/DeviceList";
 import { AIRecommendations } from "@/components/AIRecommendations";
+import { InteractiveAdvisor } from "@/components/InteractiveAdvisor";
 import { Sun, Leaf, LayoutDashboard, Zap, TrendingUp, Lightbulb } from "lucide-react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
@@ -167,7 +168,7 @@ const Index = () => {
 
           {/* AI Advisor Tab */}
           <TabsContent value="advisor" className="space-y-6 animate-fade-in">
-            <AIRecommendations recommendations={recommendations} />
+            <InteractiveAdvisor recommendations={recommendations} />
           </TabsContent>
         </Tabs>
       </main>
