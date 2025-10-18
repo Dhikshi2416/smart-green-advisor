@@ -1,13 +1,21 @@
 import { useState, useEffect } from "react";
+import { useNavigate } from "react-router-dom";
+import { supabase } from "@/integrations/supabase/client";
 import { EnergyMetrics } from "@/components/EnergyMetrics";
 import { EnergyChart } from "@/components/EnergyChart";
 import { DeviceList, getDeviceIcon } from "@/components/DeviceList";
 import { AIRecommendations } from "@/components/AIRecommendations";
 import { InteractiveAdvisor } from "@/components/InteractiveAdvisor";
-import { Sun, Leaf, LayoutDashboard, Zap, TrendingUp, Lightbulb } from "lucide-react";
+import { Sun, Leaf, LayoutDashboard, Zap, TrendingUp, Lightbulb, LogOut } from "lucide-react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Button } from "@/components/ui/button";
+import { useToast } from "@/hooks/use-toast";
 
 const Index = () => {
+  const navigate = useNavigate();
+  const { toast } = useToast();
+  const [user, setUser] = useState<any>(null);
+  const [isLoading, setIsLoading] = useState(true);
   const [devices, setDevices] = useState([
     { id: "ac", name: "Air Conditioning", consumption: 2.5, maxConsumption: 5.0, type: "ac" },
     { id: "fridge", name: "Refrigerator", consumption: 1.2, maxConsumption: 2.0, type: "fridge" },
@@ -16,6 +24,85 @@ const Index = () => {
   ]);
 
   const [solarGeneration, setSolarGeneration] = useState(3.2);
+
+  // Auth check
+  useEffect(() => {
+    const checkAuth = async () => {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) {
+        navigate("/auth");
+      } else {
+        setUser(session.user);
+      }
+      setIsLoading(false);
+    };
+
+    checkAuth();
+
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+      if (event === "SIGNED_OUT") {
+        navigate("/auth");
+      } else if (session) {
+        setUser(session.user);
+      }
+    });
+
+    return () => subscription.unsubscribe();
+  }, [navigate]);
+
+  // Load user devices
+  useEffect(() => {
+    if (!user) return;
+
+    const loadDevices = async () => {
+      const { data, error } = await supabase
+        .from("user_devices")
+        .select("*")
+        .order("created_at", { ascending: true });
+
+      if (error) {
+        toast({
+          title: "Error",
+          description: "Failed to load devices",
+          variant: "destructive",
+        });
+        return;
+      }
+
+      if (data && data.length > 0) {
+        setDevices(data.map(d => ({
+          id: d.id,
+          name: d.name,
+          type: d.type,
+          consumption: Number(d.consumption),
+          maxConsumption: 5.0, // Default max consumption
+        })));
+      }
+    };
+
+    loadDevices();
+
+    // Subscribe to realtime changes
+    const channel = supabase
+      .channel("user_devices_changes")
+      .on(
+        "postgres_changes",
+        {
+          event: "*",
+          schema: "public",
+          table: "user_devices",
+          filter: `user_id=eq.${user.id}`,
+        },
+        () => {
+          loadDevices();
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [user, toast]);
   const [chartData, setChartData] = useState<Array<{ time: string; consumption: number; solar: number }>>([]);
 
   // Generate initial chart data
@@ -54,9 +141,31 @@ const Index = () => {
   const netUsage = Math.max(0, totalConsumption - solarGeneration);
   const savings = solarGeneration * 0.15 * 30; // $0.15/kWh * 30 days
 
-  const handleDeviceChange = (deviceId: string, value: number) => {
+  const handleDeviceChange = async (deviceId: string, value: number) => {
     setDevices(prev => prev.map(d => d.id === deviceId ? { ...d, consumption: value } : d));
+    
+    // Update in database
+    await supabase
+      .from("user_devices")
+      .update({ consumption: value })
+      .eq("id", deviceId);
   };
+
+  const handleSignOut = async () => {
+    await supabase.auth.signOut();
+    navigate("/auth");
+  };
+
+  if (isLoading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gradient-bg">
+        <div className="text-center">
+          <Zap className="h-12 w-12 text-primary animate-pulse mx-auto mb-4" />
+          <p>Loading...</p>
+        </div>
+      </div>
+    );
+  }
 
   const recommendations = [
     {
@@ -103,9 +212,15 @@ const Index = () => {
                 <p className="text-sm text-muted-foreground">Energy Advisor Dashboard</p>
               </div>
             </div>
-            <div className="flex items-center gap-2 px-4 py-2 rounded-lg bg-solar/10 border border-solar/20 animate-pulse">
-              <Sun className="h-5 w-5 text-solar" />
-              <span className="text-sm font-medium">Solar Active</span>
+            <div className="flex items-center gap-4">
+              <div className="flex items-center gap-2 px-4 py-2 rounded-lg bg-solar/10 border border-solar/20 animate-pulse">
+                <Sun className="h-5 w-5 text-solar" />
+                <span className="text-sm font-medium">Solar: {solarGeneration.toFixed(1)} kW</span>
+              </div>
+              <Button variant="outline" size="sm" onClick={handleSignOut}>
+                <LogOut className="h-4 w-4 mr-2" />
+                Sign Out
+              </Button>
             </div>
           </div>
         </div>

@@ -1,6 +1,7 @@
 import { Card } from "@/components/ui/card";
 import { Slider } from "@/components/ui/slider";
 import { AirVent, Refrigerator, Tv, Lightbulb, Zap } from "lucide-react";
+import { AddDeviceDialog } from "./AddDeviceDialog";
 
 interface Device {
   id: string;
@@ -51,9 +52,12 @@ export const DeviceList = ({ devices }: DeviceListProps) => {
     <Card className="p-6">
       <div className="flex items-center justify-between mb-4">
         <h3 className="text-lg font-semibold">Device Simulator</h3>
-        <div className="text-sm">
-          <span className="text-muted-foreground">Total: </span>
-          <span className="font-bold text-primary">{totalPower.toFixed(1)} kWh</span>
+        <div className="flex items-center gap-4">
+          <div className="text-sm">
+            <span className="text-muted-foreground">Total: </span>
+            <span className="font-bold text-primary">{totalPower.toFixed(1)} kWh</span>
+          </div>
+          <AddDeviceDialog />
         </div>
       </div>
       <div className="space-y-2">
@@ -69,8 +73,13 @@ export const getDeviceIcon = (deviceType: string) => {
   const icons: Record<string, React.ReactNode> = {
     ac: <AirVent className="h-5 w-5 text-primary" />,
     fridge: <Refrigerator className="h-5 w-5 text-primary" />,
+    refrigerator: <Refrigerator className="h-5 w-5 text-primary" />,
     tv: <Tv className="h-5 w-5 text-primary" />,
     lights: <Lightbulb className="h-5 w-5 text-primary" />,
+    light: <Lightbulb className="h-5 w-5 text-primary" />,
+    thermostat: <AirVent className="h-5 w-5 text-primary" />,
+    washer: <Zap className="h-5 w-5 text-primary" />,
+    outlet: <Zap className="h-5 w-5 text-primary" />,
   };
   return icons[deviceType] || <Zap className="h-5 w-5 text-primary" />;
 };
