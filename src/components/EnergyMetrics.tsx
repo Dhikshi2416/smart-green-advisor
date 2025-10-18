@@ -74,8 +74,8 @@ export const EnergyMetrics = ({ totalConsumption, solarGeneration, netUsage, sav
       />
       <MetricCard
         title="Monthly Savings"
-        value={`$${savings.toFixed(0)}`}
-        unit="USD"
+        value={`₹${savings.toFixed(0)}`}
+        unit="INR"
         icon={<TrendingDown className="h-6 w-6 text-primary" />}
       />
     </div>

@@ -6,7 +6,9 @@ import { EnergyChart } from "@/components/EnergyChart";
 import { DeviceList, getDeviceIcon } from "@/components/DeviceList";
 import { AIRecommendations } from "@/components/AIRecommendations";
 import { InteractiveAdvisor } from "@/components/InteractiveAdvisor";
-import { Sun, Leaf, LayoutDashboard, Zap, TrendingUp, Lightbulb, LogOut } from "lucide-react";
+import { SolarPanelSimulation } from "@/components/SolarPanelSimulation";
+import { VoiceAssistant } from "@/components/VoiceAssistant";
+import { Sun, Leaf, LayoutDashboard, Zap, TrendingUp, Lightbulb, LogOut, PanelTop } from "lucide-react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
@@ -139,7 +141,7 @@ const Index = () => {
 
   const totalConsumption = devices.reduce((sum, device) => sum + device.consumption, 0);
   const netUsage = Math.max(0, totalConsumption - solarGeneration);
-  const savings = solarGeneration * 0.15 * 30; // $0.15/kWh * 30 days
+  const savings = solarGeneration * 6 * 30; // ₹6/kWh * 30 days (average Indian electricity rate)
 
   const handleDeviceChange = async (deviceId: string, value: number) => {
     setDevices(prev => prev.map(d => d.id === deviceId ? { ...d, consumption: value } : d));
@@ -172,21 +174,21 @@ const Index = () => {
       id: "1",
       title: "Optimize AC Usage",
       description: "Your AC is consuming peak power during solar generation hours. Consider increasing usage between 10 AM - 3 PM when solar is abundant.",
-      savings: "$23/month",
+      savings: "₹1,840/month",
       priority: "high" as const,
     },
     {
       id: "2",
       title: "Schedule Heavy Appliances",
       description: "Run washing machine and dishwasher during peak solar hours to maximize renewable energy usage.",
-      savings: "$15/month",
+      savings: "₹1,200/month",
       priority: "medium" as const,
     },
     {
       id: "3",
       title: "Smart Lighting Adjustment",
       description: "Reduce lighting by 20% during evening hours. Your current usage is 15% above optimal levels.",
-      savings: "$8/month",
+      savings: "₹640/month",
       priority: "low" as const,
     },
   ];
@@ -229,10 +231,14 @@ const Index = () => {
       {/* Main Content */}
       <main className="container mx-auto px-4 py-8">
         <Tabs defaultValue="dashboard" className="space-y-6">
-          <TabsList className="grid w-full max-w-2xl mx-auto grid-cols-4 h-auto">
+          <TabsList className="grid w-full max-w-3xl mx-auto grid-cols-5 h-auto">
             <TabsTrigger value="dashboard" className="flex items-center gap-2 py-3">
               <LayoutDashboard className="h-4 w-4" />
               <span className="hidden sm:inline">Dashboard</span>
+            </TabsTrigger>
+            <TabsTrigger value="solar" className="flex items-center gap-2 py-3">
+              <PanelTop className="h-4 w-4" />
+              <span className="hidden sm:inline">Solar</span>
             </TabsTrigger>
             <TabsTrigger value="devices" className="flex items-center gap-2 py-3">
               <Zap className="h-4 w-4" />
@@ -256,10 +262,21 @@ const Index = () => {
               netUsage={netUsage}
               savings={savings}
             />
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-              <EnergyChart data={chartData} />
-              <AIRecommendations recommendations={recommendations.slice(0, 2)} />
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+              <div className="lg:col-span-2">
+                <EnergyChart data={chartData} />
+              </div>
+              <VoiceAssistant devices={devices} solarGeneration={solarGeneration} />
             </div>
+            <AIRecommendations recommendations={recommendations.slice(0, 2)} />
+          </TabsContent>
+
+          {/* Solar Panel Tab */}
+          <TabsContent value="solar" className="space-y-6 animate-fade-in">
+            <SolarPanelSimulation 
+              solarGeneration={solarGeneration}
+              chartData={chartData}
+            />
           </TabsContent>
 
           {/* Devices Tab */}
@@ -283,7 +300,10 @@ const Index = () => {
 
           {/* AI Advisor Tab */}
           <TabsContent value="advisor" className="space-y-6 animate-fade-in">
-            <InteractiveAdvisor recommendations={recommendations} />
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+              <VoiceAssistant devices={devices} solarGeneration={solarGeneration} />
+              <InteractiveAdvisor recommendations={recommendations} />
+            </div>
           </TabsContent>
         </Tabs>
       </main>
