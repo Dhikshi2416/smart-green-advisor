@@ -117,7 +117,7 @@ const Index = () => {
           };
 
           // Add to real-time service
-          realTimeDeviceService.connectedDevices.set(deviceData.id, realTimeDevice);
+          realTimeDeviceService.getConnectedDevicesMap().set(deviceData.id, realTimeDevice);
         }
       }
     } catch (error) {

@@ -584,6 +584,13 @@ class RealTimeSolarService {
   }
 
   /**
+   * Remove solar panel listener
+   */
+  removeSolarListener(listener: (panels: SolarPanelData[]) => void) {
+    this.solarListeners.delete(listener);
+  }
+
+  /**
    * Add inverter listener
    */
   addInverterListener(listener: (inverters: SolarInverterData[]) => void) {
@@ -591,10 +598,24 @@ class RealTimeSolarService {
   }
 
   /**
+   * Remove inverter listener
+   */
+  removeInverterListener(listener: (inverters: SolarInverterData[]) => void) {
+    this.inverterListeners.delete(listener);
+  }
+
+  /**
    * Add battery listener
    */
   addBatteryListener(listener: (batteries: SolarBatteryData[]) => void) {
     this.batteryListeners.add(listener);
+  }
+
+  /**
+   * Remove battery listener
+   */
+  removeBatteryListener(listener: (batteries: SolarBatteryData[]) => void) {
+    this.batteryListeners.delete(listener);
   }
 
   /**

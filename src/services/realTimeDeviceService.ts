@@ -442,6 +442,13 @@ class RealTimeDeviceService {
   }
 
   /**
+   * Get connected devices map (for internal use)
+   */
+  getConnectedDevicesMap(): Map<string, RealTimeDevice> {
+    return this.connectedDevices;
+  }
+
+  /**
    * Get device by ID
    */
   getDevice(deviceId: string): RealTimeDevice | undefined {
