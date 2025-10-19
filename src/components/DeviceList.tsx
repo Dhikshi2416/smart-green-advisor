@@ -26,29 +26,29 @@ const DeviceItem = ({ device }: { device: Device }) => {
 
   return (
     <>
-      <div className="flex items-center gap-4 p-4 border-b border-border last:border-0 transition-all hover:bg-muted/50 rounded-lg">
-        <div className={`p-2 rounded-lg transition-all ${device.isOn ? 'bg-primary/10 hover:bg-primary/20' : 'bg-muted'}`}>
+      <div className="flex items-center gap-4 p-4 border-b border-border last:border-0 transition-all hover:bg-muted/50 rounded-lg hover:shadow-lg hover:-translate-x-1 hover:border-primary/50 group cursor-pointer">
+        <div className={`p-2 rounded-lg transition-all duration-300 group-hover:scale-110 group-hover:rotate-12 ${device.isOn ? 'bg-primary/10 hover:bg-primary/20 animate-pulse-glow' : 'bg-muted'}`}>
           {device.icon}
         </div>
         <div className="flex-1 space-y-2">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-3">
-              <span className="font-medium">{device.name}</span>
+              <span className="font-medium group-hover:text-primary transition-colors">{device.name}</span>
               <div className="flex items-center gap-2">
                 <Switch 
                   checked={device.isOn}
                   onCheckedChange={device.onToggle}
                 />
-                <Power className={`h-4 w-4 ${device.isOn ? 'text-primary' : 'text-muted-foreground'}`} />
+                <Power className={`h-4 w-4 transition-all ${device.isOn ? 'text-primary animate-pulse' : 'text-muted-foreground'}`} />
               </div>
             </div>
             <div className="flex items-center gap-2">
-              <span className="text-sm font-semibold text-primary bg-primary/10 px-2 py-1 rounded">
+              <span className="text-sm font-semibold text-primary bg-primary/10 px-2 py-1 rounded group-hover:bg-primary/20 group-hover:scale-105 transition-all">
                 {device.isOn ? device.consumption.toFixed(1) : "0.0"} kWh
               </span>
               <button
                 onClick={() => setShowHistory(!showHistory)}
-                className="text-xs text-primary hover:text-primary/80 underline"
+                className="text-xs text-primary hover:text-primary/80 hover:scale-110 transition-all underline"
               >
                 History
               </button>
@@ -84,9 +84,14 @@ export const DeviceList = ({ devices }: DeviceListProps) => {
   const totalPower = devices.reduce((sum, d) => sum + d.consumption, 0);
   
   return (
-    <Card className="p-6">
-      <div className="flex items-center justify-between mb-4">
-        <h3 className="text-lg font-semibold">Device Simulator</h3>
+    <Card className="p-6 hover:shadow-xl transition-all duration-300 hover-glow card-gradient border-2 hover:border-primary/50">
+      <div className="flex items-center justify-between mb-4 animate-fade-in">
+        <div className="flex items-center gap-2">
+          <div className="p-2 rounded-lg bg-primary/10 animate-pulse-glow">
+            <Zap className="h-5 w-5 text-primary animate-bounce-subtle" />
+          </div>
+          <h3 className="text-lg font-semibold bg-gradient-primary bg-clip-text text-transparent">Device Simulator</h3>
+        </div>
         <div className="flex items-center gap-4">
           <div className="text-sm">
             <span className="text-muted-foreground">Total: </span>
@@ -96,8 +101,10 @@ export const DeviceList = ({ devices }: DeviceListProps) => {
         </div>
       </div>
       <div className="space-y-2">
-        {devices.map((device) => (
-          <DeviceItem key={device.id} device={device} />
+        {devices.map((device, index) => (
+          <div key={device.id} className="animate-slide-up" style={{ animationDelay: `${index * 0.1}s` }}>
+            <DeviceItem device={device} />
+          </div>
         ))}
       </div>
     </Card>

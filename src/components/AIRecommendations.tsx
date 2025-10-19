@@ -22,33 +22,33 @@ const priorityColors = {
 
 export const AIRecommendations = ({ recommendations }: AIRecommendationsProps) => {
   return (
-    <Card className="p-6">
-      <div className="flex items-center gap-2 mb-6">
-        <div className="p-2 rounded-lg bg-primary/10">
-          <Lightbulb className="h-5 w-5 text-primary" />
+    <Card className="p-6 hover:shadow-xl transition-all duration-300 hover-glow card-gradient border-2 hover:border-primary/50">
+      <div className="flex items-center gap-2 mb-6 animate-fade-in">
+        <div className="p-2 rounded-lg bg-primary/10 animate-pulse-glow">
+          <Lightbulb className="h-5 w-5 text-primary animate-bounce-subtle" />
         </div>
-        <h3 className="text-lg font-semibold">AI Energy Advisor</h3>
+        <h3 className="text-lg font-semibold bg-gradient-primary bg-clip-text text-transparent">AI Energy Advisor</h3>
       </div>
       <div className="space-y-4">
         {recommendations.map((rec, index) => (
           <div 
             key={rec.id} 
-            className="p-4 rounded-lg border border-border bg-gradient-subtle hover:shadow-md transition-all duration-300 hover:border-primary/30 cursor-pointer"
+            className="p-4 rounded-lg border border-border bg-gradient-subtle hover:shadow-lg hover:-translate-x-2 hover:bg-primary/5 transition-all duration-300 hover:border-primary/50 cursor-pointer group animate-slide-up"
             style={{ animationDelay: `${index * 100}ms` }}
           >
             <div className="flex items-start justify-between gap-4 mb-2">
-              <h4 className="font-semibold text-foreground">{rec.title}</h4>
-              <Badge className={priorityColors[rec.priority]} variant="outline">
+              <h4 className="font-semibold text-foreground group-hover:text-primary transition-colors">{rec.title}</h4>
+              <Badge className={`${priorityColors[rec.priority]} group-hover:scale-110 transition-transform`} variant="outline">
                 {rec.priority.toUpperCase()}
               </Badge>
             </div>
-            <p className="text-sm text-muted-foreground mb-3 leading-relaxed">{rec.description}</p>
+            <p className="text-sm text-muted-foreground mb-3 leading-relaxed group-hover:text-foreground transition-colors">{rec.description}</p>
             <div className="flex items-center gap-4 text-xs">
-              <span className="flex items-center gap-1 text-primary font-medium bg-primary/10 px-2 py-1 rounded">
+              <span className="flex items-center gap-1 text-primary font-medium bg-primary/10 px-2 py-1 rounded group-hover:bg-primary/20 group-hover:scale-105 transition-all">
                 <TrendingDown className="h-3 w-3" />
                 Save {rec.savings}
               </span>
-              <span className="flex items-center gap-1 text-muted-foreground">
+              <span className="flex items-center gap-1 text-muted-foreground group-hover:text-primary transition-colors">
                 <Clock className="h-3 w-3" />
                 Immediate action
               </span>

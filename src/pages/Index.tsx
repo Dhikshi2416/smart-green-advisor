@@ -239,24 +239,24 @@ const Index = () => {
   return (
     <div className="min-h-screen bg-background">
       {/* Header */}
-      <header className="sticky top-0 z-50 border-b border-border bg-gradient-subtle backdrop-blur-sm">
+      <header className="sticky top-0 z-50 border-b border-border bg-gradient-subtle backdrop-blur-xl shadow-lg animate-slide-up">
         <div className="container mx-auto px-4 py-4">
           <div className="flex items-center justify-between">
-            <div className="flex items-center gap-3">
-              <div className="p-2 rounded-lg bg-gradient-primary shadow-elegant hover:scale-105 transition-transform">
+            <div className="flex items-center gap-3 animate-fade-in">
+              <div className="p-2 rounded-lg bg-gradient-primary shadow-elegant hover:scale-110 hover:rotate-12 transition-all duration-300 animate-float">
                 <Leaf className="h-6 w-6 text-white" />
               </div>
               <div>
-                <h1 className="text-2xl font-bold">GreenHome Genius</h1>
+                <h1 className="text-2xl font-bold bg-gradient-primary bg-clip-text text-transparent">GreenHome Genius</h1>
                 <p className="text-sm text-muted-foreground">AI Advisor for Sustainable Homes</p>
               </div>
             </div>
-            <div className="flex items-center gap-4">
-              <div className="flex items-center gap-2 px-4 py-2 rounded-lg bg-solar/10 border border-solar/20 animate-pulse">
-                <Sun className="h-5 w-5 text-solar" />
+            <div className="flex items-center gap-4 animate-fade-in" style={{ animationDelay: "0.2s" }}>
+              <div className="flex items-center gap-2 px-4 py-2 rounded-lg bg-solar/10 border border-solar/20 animate-pulse-glow hover-lift">
+                <Sun className="h-5 w-5 text-solar animate-rotate-slow" />
                 <span className="text-sm font-medium">Solar: {solarGeneration.toFixed(1)} kW</span>
               </div>
-              <Button variant="outline" size="sm" onClick={handleSignOut}>
+              <Button variant="outline" size="sm" onClick={handleSignOut} className="hover-lift">
                 <LogOut className="h-4 w-4 mr-2" />
                 Sign Out
               </Button>
@@ -292,14 +292,16 @@ const Index = () => {
           </TabsList>
 
           {/* Dashboard Tab */}
-          <TabsContent value="dashboard" className="space-y-6 animate-fade-in">
-            <EnergyMetrics
-              totalConsumption={totalConsumption}
-              solarGeneration={solarGeneration}
-              netUsage={netUsage}
-              savings={savings}
-            />
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+          <TabsContent value="dashboard" className="space-y-6">
+            <div className="animate-scale-in">
+              <EnergyMetrics
+                totalConsumption={totalConsumption}
+                solarGeneration={solarGeneration}
+                netUsage={netUsage}
+                savings={savings}
+              />
+            </div>
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 animate-slide-up" style={{ animationDelay: "0.1s" }}>
               <div className="lg:col-span-2">
                 <EnergyChart data={chartData} />
               </div>
@@ -309,45 +311,61 @@ const Index = () => {
                 totalConsumption={totalConsumption}
               />
             </div>
-            <AIRecommendations recommendations={recommendations.slice(0, 2)} />
+            <div className="animate-fade-in" style={{ animationDelay: "0.2s" }}>
+              <AIRecommendations recommendations={recommendations.slice(0, 2)} />
+            </div>
           </TabsContent>
 
           {/* Solar Panel Tab */}
-          <TabsContent value="solar" className="space-y-6 animate-fade-in">
-            <SolarPanelSimulation 
-              solarGeneration={solarGeneration}
-              chartData={chartData}
-            />
+          <TabsContent value="solar" className="space-y-6">
+            <div className="animate-scale-in">
+              <SolarPanelSimulation 
+                solarGeneration={solarGeneration}
+                chartData={chartData}
+              />
+            </div>
           </TabsContent>
 
           {/* Devices Tab */}
-          <TabsContent value="devices" className="space-y-6 animate-fade-in">
+          <TabsContent value="devices" className="space-y-6">
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-              <DeviceList devices={devicesWithHandlers} />
-              <EnergyChart data={chartData} />
+              <div className="animate-slide-up">
+                <DeviceList devices={devicesWithHandlers} />
+              </div>
+              <div className="animate-scale-in" style={{ animationDelay: "0.1s" }}>
+                <EnergyChart data={chartData} />
+              </div>
             </div>
           </TabsContent>
 
           {/* Analytics Tab */}
-          <TabsContent value="analytics" className="space-y-6 animate-fade-in">
-            <EnergyMetrics
-              totalConsumption={totalConsumption}
-              solarGeneration={solarGeneration}
-              netUsage={netUsage}
-              savings={savings}
-            />
-            <EnergyChart data={chartData} />
+          <TabsContent value="analytics" className="space-y-6">
+            <div className="animate-scale-in">
+              <EnergyMetrics
+                totalConsumption={totalConsumption}
+                solarGeneration={solarGeneration}
+                netUsage={netUsage}
+                savings={savings}
+              />
+            </div>
+            <div className="animate-slide-up" style={{ animationDelay: "0.1s" }}>
+              <EnergyChart data={chartData} />
+            </div>
           </TabsContent>
 
           {/* AI Advisor Tab */}
-          <TabsContent value="advisor" className="space-y-6 animate-fade-in">
+          <TabsContent value="advisor" className="space-y-6">
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-              <VoiceAssistant 
-                devices={devices} 
-                solarGeneration={solarGeneration}
-                totalConsumption={totalConsumption}
-              />
-              <InteractiveAdvisor recommendations={recommendations} />
+              <div className="animate-slide-up">
+                <VoiceAssistant 
+                  devices={devices} 
+                  solarGeneration={solarGeneration}
+                  totalConsumption={totalConsumption}
+                />
+              </div>
+              <div className="animate-scale-in" style={{ animationDelay: "0.1s" }}>
+                <InteractiveAdvisor recommendations={recommendations} />
+              </div>
             </div>
           </TabsContent>
         </Tabs>

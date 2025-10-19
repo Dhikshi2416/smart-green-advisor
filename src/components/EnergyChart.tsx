@@ -11,8 +11,8 @@ interface EnergyChartProps {
 
 export const EnergyChart = ({ data }: EnergyChartProps) => {
   return (
-    <Card className="p-6 hover:shadow-md transition-shadow">
-      <h3 className="text-lg font-semibold mb-4">Energy Trends (24h)</h3>
+    <Card className="p-6 hover:shadow-xl hover:-translate-y-1 transition-all duration-300 hover-glow card-gradient border-2 hover:border-primary/50">
+      <h3 className="text-lg font-semibold mb-4 bg-gradient-primary bg-clip-text text-transparent">Energy Trends (24h)</h3>
       <ResponsiveContainer width="100%" height={300}>
         <LineChart data={data}>
           <CartesianGrid strokeDasharray="3 3" className="stroke-muted" opacity={0.3} />
