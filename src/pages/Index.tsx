@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { EnergyMetrics } from "@/components/EnergyMetrics";
@@ -19,10 +19,10 @@ const Index = () => {
   const [user, setUser] = useState<any>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [devices, setDevices] = useState([
-    { id: "ac", name: "Air Conditioning", consumption: 2.5, maxConsumption: 5.0, type: "ac" },
-    { id: "fridge", name: "Refrigerator", consumption: 1.2, maxConsumption: 2.0, type: "fridge" },
-    { id: "tv", name: "Television", consumption: 0.3, maxConsumption: 1.0, type: "tv" },
-    { id: "lights", name: "Smart Lights", consumption: 0.5, maxConsumption: 1.5, type: "lights" },
+    { id: "ac", name: "Air Conditioning", consumption: 2.5, maxConsumption: 5.0, type: "ac", isOn: true },
+    { id: "fridge", name: "Refrigerator", consumption: 1.2, maxConsumption: 2.0, type: "fridge", isOn: true },
+    { id: "tv", name: "Television", consumption: 0.3, maxConsumption: 1.0, type: "tv", isOn: false },
+    { id: "lights", name: "Smart Lights", consumption: 0.5, maxConsumption: 1.5, type: "lights", isOn: true },
   ]);
 
   const [solarGeneration, setSolarGeneration] = useState(3.2);
@@ -77,7 +77,8 @@ const Index = () => {
           name: d.name,
           type: d.type,
           consumption: Number(d.consumption),
-          maxConsumption: 5.0, // Default max consumption
+          maxConsumption: 5.0,
+          isOn: d.is_on ?? true,
         })));
       }
     };
@@ -139,19 +140,54 @@ const Index = () => {
     return () => clearInterval(interval);
   }, []);
 
-  const totalConsumption = devices.reduce((sum, device) => sum + device.consumption, 0);
+  const totalConsumption = devices.reduce((sum, device) => 
+    sum + (device.isOn ? device.consumption : 0), 0
+  );
   const netUsage = Math.max(0, totalConsumption - solarGeneration);
   const savings = solarGeneration * 6 * 30; // ₹6/kWh * 30 days (average Indian electricity rate)
+
+  // Record consumption history periodically
+  useEffect(() => {
+    if (!user) return;
+
+    const recordConsumption = async () => {
+      for (const device of devices) {
+        if (device.isOn && device.consumption > 0) {
+          await supabase
+            .from("device_consumption_history")
+            .insert({
+              device_id: device.id,
+              user_id: user.id,
+              consumption: device.consumption,
+            });
+        }
+      }
+    };
+
+    // Record consumption every hour
+    const interval = setInterval(recordConsumption, 60 * 60 * 1000);
+    return () => clearInterval(interval);
+  }, [devices, user]);
 
   const handleDeviceChange = async (deviceId: string, value: number) => {
     setDevices(prev => prev.map(d => d.id === deviceId ? { ...d, consumption: value } : d));
     
-    // Update in database
     await supabase
       .from("user_devices")
       .update({ consumption: value })
       .eq("id", deviceId);
   };
+
+  const handleDeviceToggle = useCallback(async (deviceId: string, isOn: boolean) => {
+    setDevices(prev => prev.map(d => 
+      d.id === deviceId ? { ...d, isOn, consumption: isOn ? d.consumption : 0 } : d
+    ));
+    
+    await supabase
+      .from("user_devices")
+      .update({ is_on: isOn })
+      .eq("id", deviceId);
+  }, []);
 
   const handleSignOut = async () => {
     await supabase.auth.signOut();
@@ -197,6 +233,7 @@ const Index = () => {
     ...device,
     icon: getDeviceIcon(device.type),
     onConsumptionChange: (value: number) => handleDeviceChange(device.id, value),
+    onToggle: (isOn: boolean) => handleDeviceToggle(device.id, isOn),
   }));
 
   return (
@@ -210,8 +247,8 @@ const Index = () => {
                 <Leaf className="h-6 w-6 text-white" />
               </div>
               <div>
-                <h1 className="text-2xl font-bold">Green AI Smart Home</h1>
-                <p className="text-sm text-muted-foreground">Energy Advisor Dashboard</p>
+                <h1 className="text-2xl font-bold">GreenHome Genius</h1>
+                <p className="text-sm text-muted-foreground">AI Advisor for Sustainable Homes</p>
               </div>
             </div>
             <div className="flex items-center gap-4">
@@ -266,7 +303,11 @@ const Index = () => {
               <div className="lg:col-span-2">
                 <EnergyChart data={chartData} />
               </div>
-              <VoiceAssistant devices={devices} solarGeneration={solarGeneration} />
+              <VoiceAssistant 
+                devices={devices} 
+                solarGeneration={solarGeneration}
+                totalConsumption={totalConsumption}
+              />
             </div>
             <AIRecommendations recommendations={recommendations.slice(0, 2)} />
           </TabsContent>
@@ -301,7 +342,11 @@ const Index = () => {
           {/* AI Advisor Tab */}
           <TabsContent value="advisor" className="space-y-6 animate-fade-in">
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-              <VoiceAssistant devices={devices} solarGeneration={solarGeneration} />
+              <VoiceAssistant 
+                devices={devices} 
+                solarGeneration={solarGeneration}
+                totalConsumption={totalConsumption}
+              />
               <InteractiveAdvisor recommendations={recommendations} />
             </div>
           </TabsContent>

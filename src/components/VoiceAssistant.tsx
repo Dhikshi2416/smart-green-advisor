@@ -1,21 +1,25 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Mic, MicOff, Volume2 } from "lucide-react";
+import { Mic, MicOff, Volume2, AlertTriangle } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 
 interface VoiceAssistantProps {
-  devices: Array<{ name: string; consumption: number; type: string }>;
+  devices: Array<{ name: string; consumption: number; type: string; isOn: boolean }>;
   solarGeneration: number;
+  totalConsumption: number;
 }
 
-export const VoiceAssistant = ({ devices, solarGeneration }: VoiceAssistantProps) => {
+export const VoiceAssistant = ({ devices, solarGeneration, totalConsumption }: VoiceAssistantProps) => {
   const [isListening, setIsListening] = useState(false);
   const [transcript, setTranscript] = useState("");
   const [response, setResponse] = useState("");
   const [isSpeaking, setIsSpeaking] = useState(false);
+  const [autoAlertEnabled, setAutoAlertEnabled] = useState(true);
   const { toast } = useToast();
+  const previousConsumption = useRef(totalConsumption);
+  const lastAlertTime = useRef(0);
 
   const speak = (text: string) => {
     if ('speechSynthesis' in window) {
@@ -57,6 +61,40 @@ export const VoiceAssistant = ({ devices, solarGeneration }: VoiceAssistantProps
       });
     }
   };
+
+  // Auto-trigger voice advice when consumption increases significantly
+  useEffect(() => {
+    if (!autoAlertEnabled) return;
+
+    const consumptionIncrease = totalConsumption - previousConsumption.current;
+    const timeSinceLastAlert = Date.now() - lastAlertTime.current;
+    
+    // Trigger if consumption increased by more than 1 kWh and it's been at least 30 seconds since last alert
+    if (consumptionIncrease > 1.0 && timeSinceLastAlert > 30000) {
+      const highConsumptionDevices = devices
+        .filter(d => d.isOn && d.consumption > 2.0)
+        .map(d => d.name)
+        .join(", ");
+
+      if (highConsumptionDevices) {
+        const alertMessage = `Alert! Your power consumption has increased significantly. High consumption devices: ${highConsumptionDevices}. Consider switching to solar energy or reducing usage.`;
+        
+        speak(alertMessage);
+        setResponse(alertMessage);
+        setTranscript("Auto-alert: High power consumption detected");
+        
+        lastAlertTime.current = Date.now();
+        
+        toast({
+          title: "⚡ High Consumption Alert",
+          description: "AI advisor has suggestions to reduce power usage",
+          variant: "default",
+        });
+      }
+    }
+    
+    previousConsumption.current = totalConsumption;
+  }, [totalConsumption, devices, autoAlertEnabled]);
 
   const startListening = () => {
     if ('webkitSpeechRecognition' in window || 'SpeechRecognition' in window) {
@@ -116,6 +154,23 @@ export const VoiceAssistant = ({ devices, solarGeneration }: VoiceAssistantProps
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">
+        <div className="flex items-center justify-between p-3 rounded-lg bg-accent/10 border border-accent/20">
+          <div className="flex items-center gap-2">
+            <AlertTriangle className="h-4 w-4 text-accent" />
+            <span className="text-sm font-medium">Auto-alerts</span>
+          </div>
+          <label className="flex items-center gap-2 cursor-pointer">
+            <input
+              type="checkbox"
+              checked={autoAlertEnabled}
+              onChange={(e) => setAutoAlertEnabled(e.target.checked)}
+              className="w-4 h-4 rounded border-gray-300 text-primary focus:ring-primary"
+            />
+            <span className="text-xs text-muted-foreground">
+              {autoAlertEnabled ? "Enabled" : "Disabled"}
+            </span>
+          </label>
+        </div>
         <div className="flex gap-2">
           <Button
             onClick={startListening}

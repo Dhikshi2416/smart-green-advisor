@@ -1,7 +1,10 @@
 import { Card } from "@/components/ui/card";
 import { Slider } from "@/components/ui/slider";
-import { AirVent, Refrigerator, Tv, Lightbulb, Zap } from "lucide-react";
+import { Switch } from "@/components/ui/switch";
+import { AirVent, Refrigerator, Tv, Lightbulb, Zap, Power } from "lucide-react";
 import { AddDeviceDialog } from "./AddDeviceDialog";
+import { DeviceConsumptionHistory } from "./DeviceConsumptionHistory";
+import { useState } from "react";
 
 interface Device {
   id: string;
@@ -9,7 +12,9 @@ interface Device {
   icon: React.ReactNode;
   consumption: number;
   maxConsumption: number;
+  isOn: boolean;
   onConsumptionChange: (value: number) => void;
+  onToggle: (isOn: boolean) => void;
 }
 
 interface DeviceListProps {
@@ -17,31 +22,61 @@ interface DeviceListProps {
 }
 
 const DeviceItem = ({ device }: { device: Device }) => {
+  const [showHistory, setShowHistory] = useState(false);
+
   return (
-    <div className="flex items-center gap-4 p-4 border-b border-border last:border-0 transition-all hover:bg-muted/50 rounded-lg">
-      <div className="p-2 rounded-lg bg-primary/10 transition-transform hover:scale-110 hover:bg-primary/20">
-        {device.icon}
-      </div>
-      <div className="flex-1 space-y-2">
-        <div className="flex items-center justify-between">
-          <span className="font-medium">{device.name}</span>
-          <span className="text-sm font-semibold text-primary bg-primary/10 px-2 py-1 rounded">
-            {device.consumption.toFixed(1)} kWh
-          </span>
+    <>
+      <div className="flex items-center gap-4 p-4 border-b border-border last:border-0 transition-all hover:bg-muted/50 rounded-lg">
+        <div className={`p-2 rounded-lg transition-all ${device.isOn ? 'bg-primary/10 hover:bg-primary/20' : 'bg-muted'}`}>
+          {device.icon}
         </div>
-        <Slider
-          value={[device.consumption]}
-          max={device.maxConsumption}
-          step={0.1}
-          onValueChange={(values) => device.onConsumptionChange(values[0])}
-          className="w-full cursor-pointer"
-        />
-        <div className="flex justify-between text-xs text-muted-foreground">
-          <span>0 kWh</span>
-          <span>{device.maxConsumption.toFixed(1)} kWh</span>
+        <div className="flex-1 space-y-2">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <span className="font-medium">{device.name}</span>
+              <div className="flex items-center gap-2">
+                <Switch 
+                  checked={device.isOn}
+                  onCheckedChange={device.onToggle}
+                />
+                <Power className={`h-4 w-4 ${device.isOn ? 'text-primary' : 'text-muted-foreground'}`} />
+              </div>
+            </div>
+            <div className="flex items-center gap-2">
+              <span className="text-sm font-semibold text-primary bg-primary/10 px-2 py-1 rounded">
+                {device.isOn ? device.consumption.toFixed(1) : "0.0"} kWh
+              </span>
+              <button
+                onClick={() => setShowHistory(!showHistory)}
+                className="text-xs text-primary hover:text-primary/80 underline"
+              >
+                History
+              </button>
+            </div>
+          </div>
+          {device.isOn && (
+            <>
+              <Slider
+                value={[device.consumption]}
+                max={device.maxConsumption}
+                step={0.1}
+                onValueChange={(values) => device.onConsumptionChange(values[0])}
+                className="w-full cursor-pointer"
+              />
+              <div className="flex justify-between text-xs text-muted-foreground">
+                <span>0 kWh</span>
+                <span>{device.maxConsumption.toFixed(1)} kWh</span>
+              </div>
+            </>
+          )}
         </div>
       </div>
-    </div>
+      {showHistory && (
+        <div className="px-4 pb-4">
+          <DeviceConsumptionHistory deviceId={device.id} deviceName={device.name} />
+        </div>
+      )}
+    </>
   );
 };
 

@@ -14,6 +14,41 @@ export type Database = {
   }
   public: {
     Tables: {
+      device_consumption_history: {
+        Row: {
+          consumption: number
+          created_at: string
+          device_id: string
+          id: string
+          recorded_at: string
+          user_id: string
+        }
+        Insert: {
+          consumption?: number
+          created_at?: string
+          device_id: string
+          id?: string
+          recorded_at?: string
+          user_id: string
+        }
+        Update: {
+          consumption?: number
+          created_at?: string
+          device_id?: string
+          id?: string
+          recorded_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "device_consumption_history_device_id_fkey"
+            columns: ["device_id"]
+            isOneToOne: false
+            referencedRelation: "user_devices"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       profiles: {
         Row: {
           created_at: string | null
@@ -44,6 +79,7 @@ export type Database = {
           consumption: number
           created_at: string | null
           id: string
+          is_on: boolean
           name: string
           status: string
           type: string
@@ -55,6 +91,7 @@ export type Database = {
           consumption?: number
           created_at?: string | null
           id?: string
+          is_on?: boolean
           name: string
           status?: string
           type: string
@@ -66,6 +103,7 @@ export type Database = {
           consumption?: number
           created_at?: string | null
           id?: string
+          is_on?: boolean
           name?: string
           status?: string
           type?: string
