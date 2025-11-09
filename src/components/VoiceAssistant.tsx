@@ -139,13 +139,11 @@ export const VoiceAssistant = ({ devices, solarGeneration, totalConsumption }: V
     lastAlertTime.current = Date.now();
     
     // Toast notification
-    const toastConfig = {
+    toast({
       title: getAlertIcon(recommendation.type) + " " + getAlertTitle(recommendation.type),
       description: recommendation.message,
-      variant: recommendation.priority === 'high' ? 'destructive' : 'default' as const,
-    };
-    
-    toast(toastConfig);
+      variant: recommendation.priority === 'high' ? 'destructive' : 'default',
+    });
   };
 
   const getAlertIcon = (type: string): string => {

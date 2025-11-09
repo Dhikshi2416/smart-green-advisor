@@ -89,37 +89,8 @@ const Index = () => {
 
       if (error) throw error;
 
-      if (data && data.length > 0) {
-        // Convert database devices to real-time devices
-        for (const deviceData of data) {
-          const realTimeDevice: RealTimeDevice = {
-            id: deviceData.id,
-            name: deviceData.name,
-            type: deviceData.type,
-            brand: deviceData.brand,
-            model: deviceData.model,
-            isConnected: deviceData.status === 'online',
-            isOn: deviceData.is_on ?? false,
-            consumption: Number(deviceData.consumption) || 0,
-            maxConsumption: Number(deviceData.max_consumption) || 5.0,
-            connectionType: deviceData.connection_type || 'wifi',
-            ipAddress: deviceData.ip_address,
-            macAddress: deviceData.mac_address,
-            bluetoothId: deviceData.bluetooth_id,
-            lastSeen: new Date(deviceData.last_seen || new Date()),
-            status: deviceData.status || 'offline',
-            capabilities: deviceData.capabilities || [],
-            temperature: deviceData.temperature,
-            mode: deviceData.mode,
-            fanSpeed: deviceData.fan_speed,
-            brightness: deviceData.brightness,
-            color: deviceData.color
-          };
-
-          // Add to real-time service
-          realTimeDeviceService.getConnectedDevicesMap().set(deviceData.id, realTimeDevice);
-        }
-      }
+      // Let the real-time device service handle device management
+      // This just ensures devices are in the database
     } catch (error) {
       console.error('Failed to load existing devices:', error);
       toast({
@@ -394,15 +365,20 @@ const Index = () => {
           <TabsContent value="advisor" className="space-y-6">
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
               <div className="animate-slide-up">
+                <AIRecommendations 
+                  recommendations={recommendations}
+                />
+              </div>
+              <div className="animate-slide-up" style={{ animationDelay: "0.1s" }}>
                 <VoiceAssistant 
                   devices={devices} 
                   solarGeneration={solarGeneration}
                   totalConsumption={totalConsumption}
                 />
               </div>
-              <div className="animate-scale-in" style={{ animationDelay: "0.1s" }}>
-                <InteractiveAdvisor recommendations={recommendations} />
-              </div>
+            </div>
+            <div className="animate-slide-up" style={{ animationDelay: "0.2s" }}>
+              <InteractiveAdvisor recommendations={recommendations} />
             </div>
           </TabsContent>
         </Tabs>

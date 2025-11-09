@@ -49,8 +49,13 @@ class DeviceScanner {
     const timeout = options.timeout || 10000;
 
     try {
+      // Check if Bluetooth API is available
+      if (!('bluetooth' in navigator)) {
+        throw new Error('Web Bluetooth API not supported in this browser');
+      }
+      
       // Request Bluetooth device with specific services for smart home devices
-      const device = await navigator.bluetooth.requestDevice({
+      const device = await (navigator as any).bluetooth.requestDevice({
         acceptAllDevices: true,
         optionalServices: [
           'battery_service',

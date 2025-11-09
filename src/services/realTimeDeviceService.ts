@@ -182,7 +182,7 @@ class RealTimeDeviceService {
     const deviceId = `bt_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
     
     // Use Web Bluetooth API
-    if (!navigator.bluetooth) {
+    if (!('bluetooth' in navigator)) {
       throw new Error('Bluetooth not supported');
     }
 
@@ -277,7 +277,7 @@ class RealTimeDeviceService {
         headers: {
           'Content-Type': 'application/json',
         },
-        timeout: 5000
+        signal: AbortSignal.timeout(5000)
       });
 
       if (!response.ok) {
@@ -417,7 +417,7 @@ class RealTimeDeviceService {
         'Content-Type': 'application/json',
       },
       body: JSON.stringify(command),
-      timeout: 5000
+      signal: AbortSignal.timeout(5000)
     });
 
     if (!response.ok) {
@@ -571,17 +571,11 @@ class RealTimeDeviceService {
           id: device.id,
           name: device.name,
           type: device.type,
-          brand: device.brand,
-          model: device.model,
           consumption: device.consumption,
           status: device.status,
           connection_type: device.connectionType,
-          ip_address: device.ipAddress,
-          mac_address: device.macAddress,
-          bluetooth_id: device.bluetoothId,
-          capabilities: device.capabilities,
           is_on: device.isOn,
-          last_seen: device.lastSeen.toISOString()
+          user_id: (await supabase.auth.getUser()).data.user?.id
         });
 
       if (error) throw error;

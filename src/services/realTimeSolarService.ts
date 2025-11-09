@@ -664,58 +664,19 @@ class RealTimeSolarService {
   }
 
   /**
-   * Save solar panel to database
+   * Save solar panel to database (currently disabled - table not created)
    */
   private async saveSolarPanelToDatabase(panel: SolarPanelData): Promise<void> {
-    try {
-      const { error } = await supabase
-        .from('solar_panels')
-        .upsert({
-          id: panel.id,
-          name: panel.name,
-          is_connected: panel.isConnected,
-          generation: panel.generation,
-          efficiency: panel.efficiency,
-          temperature: panel.temperature,
-          voltage: panel.voltage,
-          current: panel.current,
-          power: panel.power,
-          status: panel.status,
-          location: panel.location,
-          tilt: panel.tilt,
-          azimuth: panel.azimuth,
-          last_update: panel.lastUpdate.toISOString()
-        });
-
-      if (error) throw error;
-    } catch (error) {
-      console.error('Failed to save solar panel to database:', error);
-    }
+    // TODO: Create solar_panels table in database if needed
+    console.log('Solar panel save skipped - table not implemented:', panel.name);
   }
 
   /**
-   * Update solar panel in database
+   * Update solar panel in database (currently disabled - table not created)
    */
   private async updateSolarPanelInDatabase(panel: SolarPanelData): Promise<void> {
-    try {
-      const { error } = await supabase
-        .from('solar_panels')
-        .update({
-          generation: panel.generation,
-          efficiency: panel.efficiency,
-          temperature: panel.temperature,
-          voltage: panel.voltage,
-          current: panel.current,
-          power: panel.power,
-          status: panel.status,
-          last_update: panel.lastUpdate.toISOString()
-        })
-        .eq('id', panel.id);
-
-      if (error) throw error;
-    } catch (error) {
-      console.error('Failed to update solar panel in database:', error);
-    }
+    // TODO: Create solar_panels table in database if needed
+    console.log('Solar panel update skipped - table not implemented:', panel.name);
   }
 }
 

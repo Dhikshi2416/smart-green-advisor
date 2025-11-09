@@ -13,6 +13,7 @@ import { useState } from "react";
 interface Device {
   id: string;
   name: string;
+  type: string;
   icon: React.ReactNode;
   consumption: number;
   maxConsumption: number;
@@ -24,14 +25,7 @@ interface Device {
   status?: 'online' | 'offline' | 'connecting' | 'error';
   connectionType?: 'wifi' | 'bluetooth' | 'zigbee' | 'z-wave';
   lastSeen?: Date;
-  temperature?: number;
-  mode?: string;
-  fanSpeed?: number;
-  brightness?: number;
-  color?: string;
   brand?: string;
-  model?: string;
-  capabilities?: string[];
 }
 
 interface DeviceListProps {
@@ -141,23 +135,6 @@ const DeviceItem = ({ device, onDeviceRemoved }: { device: Device; onDeviceRemov
             )}
           </div>
 
-          {/* Device-specific real-time data */}
-          {(device.temperature || device.mode || device.fanSpeed || device.brightness) && (
-            <div className="flex items-center gap-4 text-xs text-muted-foreground">
-              {device.temperature && (
-                <span>🌡️ {device.temperature}°C</span>
-              )}
-              {device.mode && (
-                <span>⚙️ {device.mode}</span>
-              )}
-              {device.fanSpeed && (
-                <span>🌀 Speed {device.fanSpeed}</span>
-              )}
-              {device.brightness && (
-                <span>💡 {device.brightness}%</span>
-              )}
-            </div>
-          )}
 
           {device.isOn && device.isConnected && (
             <>

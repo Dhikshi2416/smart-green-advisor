@@ -177,14 +177,9 @@ class RealTimeAnalyticsService {
    * Get solar analytics
    */
   private async getSolarAnalytics(userId: string) {
-    // Get solar panel data
-    const { data: solarData, error } = await supabase
-      .from('solar_panels')
-      .select('generation, efficiency, last_update')
-      .eq('user_id', userId)
-      .eq('is_connected', true);
-
-    if (error) throw error;
+    // Get solar panel data (simulated for now)
+    const solarData: any[] = [];
+    // TODO: Add solar_panels table to database if needed
 
     const now = new Date();
     const hourlyGeneration = this.generateHourlySolarData(now);
