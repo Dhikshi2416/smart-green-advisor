@@ -46,36 +46,38 @@ interface EnergyMetricsProps {
   solarGeneration: number;
   netUsage: number;
   savings: number;
+  devicesCount?: number;
 }
 
-export const EnergyMetrics = ({ totalConsumption, solarGeneration, netUsage, savings }: EnergyMetricsProps) => {
+export const EnergyMetrics = ({ totalConsumption, solarGeneration, netUsage, savings, devicesCount = 0 }: EnergyMetricsProps) => {
   return (
     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
       <div className="animate-scale-in" style={{ animationDelay: "0s" }}>
         <MetricCard
           title="Total Consumption"
           value={totalConsumption.toFixed(1)}
-          unit="kWh"
+          unit="kW"
           icon={<Zap className="h-6 w-6 text-primary" />}
-          trend="12% vs last month"
+          trend={devicesCount > 0 ? `${devicesCount} active device(s)` : "No devices connected"}
         />
       </div>
       <div className="animate-scale-in" style={{ animationDelay: "0.1s" }}>
         <MetricCard
           title="Solar Generation"
           value={solarGeneration.toFixed(1)}
-          unit="kWh"
-          icon={<Sun className="h-6 w-6 text-solar animate-rotate-slow" />}
+          unit="kW"
+          icon={<Sun className="h-6 w-6 text-solar" />}
           variant="solar"
+          trend={solarGeneration > 0 ? "Panels active" : "No panels connected"}
         />
       </div>
       <div className="animate-scale-in" style={{ animationDelay: "0.2s" }}>
         <MetricCard
           title="Net Usage"
           value={netUsage.toFixed(1)}
-          unit="kWh"
+          unit="kW"
           icon={<Battery className="h-6 w-6 text-primary" />}
-          trend="8% reduction"
+          trend={totalConsumption > 0 ? "From grid" : "No usage"}
         />
       </div>
       <div className="animate-scale-in" style={{ animationDelay: "0.3s" }}>
@@ -84,6 +86,7 @@ export const EnergyMetrics = ({ totalConsumption, solarGeneration, netUsage, sav
           value={`₹${savings.toFixed(0)}`}
           unit="INR"
           icon={<TrendingDown className="h-6 w-6 text-primary" />}
+          trend={savings > 0 ? "From solar" : "Connect solar to save"}
         />
       </div>
     </div>

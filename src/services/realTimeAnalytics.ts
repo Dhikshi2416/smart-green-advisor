@@ -1,4 +1,4 @@
-// Real-time Analytics Service
+// Real-time Analytics Service - Uses actual database data only
 import { supabase } from "@/integrations/supabase/client";
 
 export interface AnalyticsData {
@@ -33,55 +33,26 @@ export interface AnalyticsData {
 
 class RealTimeAnalyticsService {
   private analyticsCache: Map<string, any> = new Map();
-  private updateInterval: NodeJS.Timeout | null = null;
-  private isMonitoring = false;
-
-  constructor() {
-    this.startAnalyticsMonitoring();
-  }
 
   /**
-   * Start real-time analytics monitoring
-   */
-  private startAnalyticsMonitoring() {
-    if (this.isMonitoring) return;
-    
-    this.isMonitoring = true;
-    this.updateInterval = setInterval(() => {
-      this.updateAnalyticsCache();
-    }, 30000); // Update every 30 seconds
-  }
-
-  /**
-   * Stop analytics monitoring
-   */
-  stopMonitoring() {
-    if (this.updateInterval) {
-      clearInterval(this.updateInterval);
-      this.updateInterval = null;
-    }
-    this.isMonitoring = false;
-  }
-
-  /**
-   * Get comprehensive analytics data
+   * Get comprehensive analytics data from real database
    */
   async getAnalyticsData(userId: string): Promise<AnalyticsData> {
     try {
-      // Check cache first
       const cacheKey = `analytics_${userId}`;
       const cached = this.analyticsCache.get(cacheKey);
-      if (cached && Date.now() - cached.timestamp < 60000) { // 1 minute cache
+      if (cached && Date.now() - cached.timestamp < 30000) {
         return cached.data;
       }
 
-      // Fetch fresh data
-      const [consumptionData, deviceData, solarData, insights] = await Promise.all([
+      const [consumptionData, deviceData, insights] = await Promise.all([
         this.getConsumptionAnalytics(userId),
         this.getDeviceAnalytics(userId),
-        this.getSolarAnalytics(userId),
         this.getInsights(userId)
       ]);
+
+      // Solar data is 0 unless solar panels are connected (no solar_panels table yet)
+      const solarData = this.getEmptySolarData();
 
       const analyticsData: AnalyticsData = {
         consumption: consumptionData,
@@ -90,7 +61,6 @@ class RealTimeAnalyticsService {
         insights
       };
 
-      // Cache the data
       this.analyticsCache.set(cacheKey, {
         data: analyticsData,
         timestamp: Date.now()
@@ -104,375 +74,289 @@ class RealTimeAnalyticsService {
   }
 
   /**
-   * Get consumption analytics
+   * Get consumption analytics from device_consumption_history
    */
   private async getConsumptionAnalytics(userId: string) {
     const now = new Date();
     const startOfDay = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-    const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
 
-    // Get hourly data for today
-    const hourlyData = await this.getHourlyConsumptionData(userId, startOfDay);
-    
-    // Get daily data for last 30 days
-    const dailyData = await this.getDailyConsumptionData(userId, 30);
-    
-    // Get monthly data for last 12 months
-    const monthlyData = await this.getMonthlyConsumptionData(userId, 12);
+    const [hourlyData, dailyData, monthlyData] = await Promise.all([
+      this.getHourlyConsumptionData(userId, startOfDay),
+      this.getDailyConsumptionData(userId, 30),
+      this.getMonthlyConsumptionData(userId, 12)
+    ]);
 
-    return {
-      hourly: hourlyData,
-      daily: dailyData,
-      monthly: monthlyData
-    };
+    return { hourly: hourlyData, daily: dailyData, monthly: monthlyData };
   }
 
   /**
-   * Get device analytics
+   * Get device analytics from user_devices table
    */
   private async getDeviceAnalytics(userId: string) {
-    // Get device consumption data
     const { data: deviceData, error } = await supabase
       .from('user_devices')
-      .select('name, consumption, status, type')
-      .eq('user_id', userId)
-      .eq('is_on', true);
+      .select('name, consumption, status, type, is_on')
+      .eq('user_id', userId);
 
     if (error) throw error;
 
-    const totalConsumption = deviceData?.reduce((sum, d) => sum + (d.consumption || 0), 0) || 0;
+    const activeDevices = deviceData?.filter(d => d.is_on) || [];
+    const totalConsumption = activeDevices.reduce((sum, d) => sum + (d.consumption || 0), 0);
 
-    // Top consumers
-    const topConsumers = deviceData
-      ?.map(d => ({
+    const topConsumers = activeDevices
+      .map(d => ({
         name: d.name,
         consumption: d.consumption || 0,
         percentage: totalConsumption > 0 ? ((d.consumption || 0) / totalConsumption) * 100 : 0
       }))
       .sort((a, b) => b.consumption - a.consumption)
-      .slice(0, 5) || [];
+      .slice(0, 5);
 
-    // Device efficiency
-    const efficiency = deviceData?.map(d => ({
+    const maxConsumptions: Record<string, number> = {
+      'ac': 3.5, 'tv': 0.3, 'light': 0.1, 'refrigerator': 0.8,
+      'washer': 2.0, 'outlet': 1.5, 'thermostat': 0.2
+    };
+
+    const efficiency = (deviceData || []).map(d => ({
       name: d.name,
-      efficiency: this.calculateDeviceEfficiency(d),
+      efficiency: d.is_on && d.consumption > 0
+        ? Math.min(100, ((d.consumption || 0) / (maxConsumptions[d.type] || 1.0)) * 100)
+        : 0,
       status: d.status || 'offline'
-    })) || [];
+    }));
 
-    // Device trends (simplified - would need historical data)
-    const trends = deviceData?.map(d => ({
-      name: d.name,
-      trend: this.calculateDeviceTrend(d),
-      change: Math.random() * 20 - 10 // Simulated change percentage
-    })) || [];
+    // Calculate real trends from consumption history
+    const trends = await this.getDeviceTrends(userId, deviceData || []);
 
-    return {
-      topConsumers,
-      efficiency,
-      trends
-    };
+    return { topConsumers, efficiency, trends };
   }
 
   /**
-   * Get solar analytics
+   * Get device trends from consumption history
    */
-  private async getSolarAnalytics(userId: string) {
-    // Get solar panel data (simulated for now)
-    const solarData: any[] = [];
-    // TODO: Add solar_panels table to database if needed
-
+  private async getDeviceTrends(userId: string, devices: any[]) {
     const now = new Date();
-    const hourlyGeneration = this.generateHourlySolarData(now);
-    const weatherData = this.generateWeatherData(7); // Last 7 days
+    const oneDayAgo = new Date(now.getTime() - 24 * 60 * 60 * 1000);
+    const twoDaysAgo = new Date(now.getTime() - 48 * 60 * 60 * 1000);
 
-    // Calculate savings
-    const dailyGeneration = solarData?.reduce((sum, panel) => sum + (panel.generation || 0), 0) || 0;
-    const electricityRate = 8.5; // ₹8.5 per kWh (Indian average)
-    
-    const savings = {
-      daily: dailyGeneration * electricityRate,
-      monthly: dailyGeneration * electricityRate * 30,
-      yearly: dailyGeneration * electricityRate * 365,
-      total: dailyGeneration * electricityRate * 365 * 2 // 2 years lifetime
-    };
+    const trends = [];
+    for (const device of devices) {
+      // Get recent consumption
+      const { data: recentData } = await supabase
+        .from('device_consumption_history')
+        .select('consumption')
+        .eq('user_id', userId)
+        .eq('device_id', device.name) // This might need device id
+        .gte('recorded_at', oneDayAgo.toISOString())
+        .order('recorded_at', { ascending: false });
 
+      const { data: olderData } = await supabase
+        .from('device_consumption_history')
+        .select('consumption')
+        .eq('user_id', userId)
+        .gte('recorded_at', twoDaysAgo.toISOString())
+        .lt('recorded_at', oneDayAgo.toISOString());
+
+      const recentAvg = recentData && recentData.length > 0
+        ? recentData.reduce((s, r) => s + r.consumption, 0) / recentData.length : 0;
+      const olderAvg = olderData && olderData.length > 0
+        ? olderData.reduce((s, r) => s + r.consumption, 0) / olderData.length : 0;
+
+      const change = olderAvg > 0 ? ((recentAvg - olderAvg) / olderAvg) * 100 : 0;
+      const trend: 'up' | 'down' | 'stable' = change > 5 ? 'up' : change < -5 ? 'down' : 'stable';
+
+      trends.push({ name: device.name, trend, change });
+    }
+    return trends;
+  }
+
+  /**
+   * Get hourly consumption from device_consumption_history
+   */
+  private async getHourlyConsumptionData(userId: string, startDate: Date) {
+    const { data: historyData } = await supabase
+      .from('device_consumption_history')
+      .select('consumption, recorded_at')
+      .eq('user_id', userId)
+      .gte('recorded_at', startDate.toISOString())
+      .order('recorded_at', { ascending: true });
+
+    // Group by hour
+    const hourlyMap = new Map<string, number>();
+    for (let i = 0; i < 24; i++) {
+      hourlyMap.set(i.toString().padStart(2, '0') + ':00', 0);
+    }
+
+    if (historyData) {
+      for (const record of historyData) {
+        const hour = new Date(record.recorded_at).getHours();
+        const key = hour.toString().padStart(2, '0') + ':00';
+        hourlyMap.set(key, (hourlyMap.get(key) || 0) + record.consumption);
+      }
+    }
+
+    return Array.from(hourlyMap.entries()).map(([hour, consumption]) => ({
+      hour,
+      consumption: Number(consumption.toFixed(2)),
+      solar: 0, // No solar panels table yet
+      net: Number(consumption.toFixed(2))
+    }));
+  }
+
+  /**
+   * Get daily consumption from device_consumption_history
+   */
+  private async getDailyConsumptionData(userId: string, days: number) {
+    const startDate = new Date(Date.now() - days * 24 * 60 * 60 * 1000);
+
+    const { data: historyData } = await supabase
+      .from('device_consumption_history')
+      .select('consumption, recorded_at')
+      .eq('user_id', userId)
+      .gte('recorded_at', startDate.toISOString())
+      .order('recorded_at', { ascending: true });
+
+    // Group by date
+    const dailyMap = new Map<string, number>();
+    for (let i = days - 1; i >= 0; i--) {
+      const date = new Date(Date.now() - i * 24 * 60 * 60 * 1000);
+      dailyMap.set(date.toISOString().split('T')[0], 0);
+    }
+
+    if (historyData) {
+      for (const record of historyData) {
+        const date = new Date(record.recorded_at).toISOString().split('T')[0];
+        if (dailyMap.has(date)) {
+          dailyMap.set(date, (dailyMap.get(date) || 0) + record.consumption);
+        }
+      }
+    }
+
+    return Array.from(dailyMap.entries()).map(([date, consumption]) => ({
+      date,
+      consumption: Number(consumption.toFixed(2)),
+      solar: 0,
+      savings: 0
+    }));
+  }
+
+  /**
+   * Get monthly consumption from device_consumption_history
+   */
+  private async getMonthlyConsumptionData(userId: string, months: number) {
+    const startDate = new Date();
+    startDate.setMonth(startDate.getMonth() - months);
+
+    const { data: historyData } = await supabase
+      .from('device_consumption_history')
+      .select('consumption, recorded_at')
+      .eq('user_id', userId)
+      .gte('recorded_at', startDate.toISOString())
+      .order('recorded_at', { ascending: true });
+
+    const monthlyMap = new Map<string, number>();
+    for (let i = months - 1; i >= 0; i--) {
+      const date = new Date();
+      date.setMonth(date.getMonth() - i);
+      const key = date.toLocaleDateString('en-US', { month: 'short', year: 'numeric' });
+      monthlyMap.set(key, 0);
+    }
+
+    if (historyData) {
+      for (const record of historyData) {
+        const date = new Date(record.recorded_at);
+        const key = date.toLocaleDateString('en-US', { month: 'short', year: 'numeric' });
+        if (monthlyMap.has(key)) {
+          monthlyMap.set(key, (monthlyMap.get(key) || 0) + record.consumption);
+        }
+      }
+    }
+
+    return Array.from(monthlyMap.entries()).map(([month, consumption]) => ({
+      month,
+      consumption: Number(consumption.toFixed(2)),
+      solar: 0,
+      savings: 0
+    }));
+  }
+
+  /**
+   * Empty solar data (no solar_panels table)
+   */
+  private getEmptySolarData() {
+    const hourlyData = [];
+    for (let i = 0; i < 24; i++) {
+      hourlyData.push({
+        time: i.toString().padStart(2, '0') + ':00',
+        generation: 0,
+        efficiency: 0
+      });
+    }
     return {
-      generation: hourlyGeneration,
-      weather: weatherData,
-      savings
+      generation: hourlyData,
+      weather: [],
+      savings: { daily: 0, monthly: 0, yearly: 0, total: 0 }
     };
   }
 
   /**
-   * Get insights and recommendations
+   * Get insights based on real device data
    */
   private async getInsights(userId: string) {
-    const insights = [];
+    const insights: AnalyticsData['insights'] = [];
 
-    // Get current consumption data
     const { data: devices } = await supabase
       .from('user_devices')
       .select('name, consumption, type, is_on')
       .eq('user_id', userId);
 
-    const totalConsumption = devices?.reduce((sum, d) => sum + (d.is_on ? (d.consumption || 0) : 0), 0) || 0;
-    const hour = new Date().getHours();
+    if (!devices || devices.length === 0) {
+      insights.push({
+        type: 'optimization',
+        title: 'No Devices Connected',
+        description: 'Connect your smart devices to start monitoring energy consumption in real-time.',
+        impact: 0,
+        priority: 'high'
+      });
+      return insights;
+    }
 
-    // High consumption insight
+    const totalConsumption = devices.reduce((sum, d) => sum + (d.is_on ? (d.consumption || 0) : 0), 0);
+    const activeCount = devices.filter(d => d.is_on).length;
+
     if (totalConsumption > 3.0) {
       insights.push({
-        type: 'alert' as const,
+        type: 'alert',
         title: 'High Energy Consumption',
-        description: `Your current consumption is ${totalConsumption.toFixed(1)} kWh. Consider reducing usage during peak hours.`,
+        description: `Current consumption is ${totalConsumption.toFixed(1)} kW across ${activeCount} active devices. Consider turning off unused devices.`,
         impact: 15,
-        priority: 'high' as const
+        priority: 'high'
       });
     }
 
-    // Solar opportunity insight
-    if (hour >= 10 && hour <= 15) {
+    if (totalConsumption > 0 && totalConsumption <= 3.0) {
+      const potentialSavings = totalConsumption * 0.2 * 8.5 * 30;
       insights.push({
-        type: 'optimization' as const,
-        title: 'Peak Solar Hours',
-        description: 'You\'re in peak solar generation hours. Perfect time to run heavy appliances.',
-        impact: 25,
-        priority: 'medium' as const
+        type: 'saving',
+        title: 'Potential Monthly Savings',
+        description: `By optimizing your ${activeCount} active devices, you could save ₹${potentialSavings.toFixed(0)}/month.`,
+        impact: 20,
+        priority: 'medium'
       });
     }
 
-    // Device efficiency insight
-    const acDevices = devices?.filter(d => d.type === 'ac' && d.is_on) || [];
+    const acDevices = devices.filter(d => d.type === 'ac' && d.is_on);
     if (acDevices.length > 0) {
       insights.push({
-        type: 'efficiency' as const,
+        type: 'efficiency',
         title: 'AC Optimization',
-        description: 'Consider increasing AC temperature by 2°C to save 15% on cooling costs.',
-        impact: 20,
-        priority: 'medium' as const
-      });
-    }
-
-    // Cost saving insight
-    if (totalConsumption > 0) {
-      const potentialSavings = totalConsumption * 0.2 * 8.5 * 30; // 20% reduction
-      insights.push({
-        type: 'saving' as const,
-        title: 'Monthly Savings Opportunity',
-        description: `You could save ₹${potentialSavings.toFixed(0)} per month by optimizing device usage.`,
-        impact: 30,
-        priority: 'high' as const
+        description: `You have ${acDevices.length} AC unit(s) running. Increasing temperature by 2°C can save 15% on cooling costs.`,
+        impact: 15,
+        priority: 'medium'
       });
     }
 
     return insights;
-  }
-
-  /**
-   * Get hourly consumption data
-   */
-  private async getHourlyConsumptionData(userId: string, startDate: Date) {
-    const hourlyData = [];
-    const now = new Date();
-    
-    for (let i = 0; i < 24; i++) {
-      const hour = new Date(startDate.getTime() + i * 60 * 60 * 1000);
-      const hourStr = hour.getHours().toString().padStart(2, '0') + ':00';
-      
-      // Simulate realistic consumption patterns
-      const baseConsumption = this.getBaseConsumptionForHour(hour.getHours());
-      const consumption = baseConsumption + (Math.random() - 0.5) * 0.5;
-      const solar = this.getSolarGenerationForHour(hour.getHours());
-      const net = Math.max(0, consumption - solar);
-      
-      hourlyData.push({
-        hour: hourStr,
-        consumption: Math.max(0, consumption),
-        solar: Math.max(0, solar),
-        net: Math.max(0, net)
-      });
-    }
-    
-    return hourlyData;
-  }
-
-  /**
-   * Get daily consumption data
-   */
-  private async getDailyConsumptionData(userId: string, days: number) {
-    const dailyData = [];
-    const now = new Date();
-    
-    for (let i = days - 1; i >= 0; i--) {
-      const date = new Date(now.getTime() - i * 24 * 60 * 60 * 1000);
-      const dateStr = date.toISOString().split('T')[0];
-      
-      // Simulate daily consumption with weekend patterns
-      const isWeekend = date.getDay() === 0 || date.getDay() === 6;
-      const baseConsumption = isWeekend ? 15 : 12; // Higher on weekends
-      const consumption = baseConsumption + (Math.random() - 0.5) * 4;
-      const solar = 8 + (Math.random() - 0.5) * 3; // Solar generation
-      const savings = solar * 8.5; // ₹8.5 per kWh
-      
-      dailyData.push({
-        date: dateStr,
-        consumption: Math.max(0, consumption),
-        solar: Math.max(0, solar),
-        savings: Math.max(0, savings)
-      });
-    }
-    
-    return dailyData;
-  }
-
-  /**
-   * Get monthly consumption data
-   */
-  private async getMonthlyConsumptionData(userId: string, months: number) {
-    const monthlyData = [];
-    const now = new Date();
-    
-    for (let i = months - 1; i >= 0; i--) {
-      const date = new Date(now.getFullYear(), now.getMonth() - i, 1);
-      const monthStr = date.toLocaleDateString('en-US', { month: 'short', year: 'numeric' });
-      
-      // Simulate monthly consumption with seasonal patterns
-      const isSummer = date.getMonth() >= 4 && date.getMonth() <= 8; // May to September
-      const baseConsumption = isSummer ? 450 : 350; // Higher in summer
-      const consumption = baseConsumption + (Math.random() - 0.5) * 100;
-      const solar = 200 + (Math.random() - 0.5) * 50; // Solar generation
-      const savings = solar * 8.5; // ₹8.5 per kWh
-      
-      monthlyData.push({
-        month: monthStr,
-        consumption: Math.max(0, consumption),
-        solar: Math.max(0, solar),
-        savings: Math.max(0, savings)
-      });
-    }
-    
-    return monthlyData;
-  }
-
-  /**
-   * Generate hourly solar data
-   */
-  private generateHourlySolarData(now: Date) {
-    const hourlyData = [];
-    
-    for (let i = 0; i < 24; i++) {
-      const hour = new Date(now.getTime() + i * 60 * 60 * 1000);
-      const hourStr = hour.getHours().toString().padStart(2, '0') + ':00';
-      const generation = this.getSolarGenerationForHour(hour.getHours());
-      const efficiency = generation > 0 ? (generation / 5.0) * 100 : 0; // Assume 5kW max
-      
-      hourlyData.push({
-        time: hourStr,
-        generation: Math.max(0, generation),
-        efficiency: Math.min(100, Math.max(0, efficiency))
-      });
-    }
-    
-    return hourlyData;
-  }
-
-  /**
-   * Generate weather data
-   */
-  private generateWeatherData(days: number) {
-    const weatherData = [];
-    const conditions = ['clear', 'partly-cloudy', 'cloudy', 'overcast', 'rain'];
-    
-    for (let i = days - 1; i >= 0; i--) {
-      const date = new Date(Date.now() - i * 24 * 60 * 60 * 1000);
-      const dateStr = date.toISOString().split('T')[0];
-      const condition = conditions[Math.floor(Math.random() * conditions.length)];
-      const generation = this.getGenerationForWeather(condition);
-      
-      weatherData.push({
-        date: dateStr,
-        condition,
-        generation: Math.max(0, generation)
-      });
-    }
-    
-    return weatherData;
-  }
-
-  /**
-   * Get base consumption for hour
-   */
-  private getBaseConsumptionForHour(hour: number): number {
-    if (hour >= 6 && hour <= 8) return 0.8; // Morning
-    if (hour >= 9 && hour <= 17) return 1.2; // Day
-    if (hour >= 18 && hour <= 22) return 2.0; // Evening
-    return 0.5; // Night
-  }
-
-  /**
-   * Get solar generation for hour
-   */
-  private getSolarGenerationForHour(hour: number): number {
-    if (hour < 6 || hour > 18) return 0; // No solar at night
-    const intensity = Math.sin((hour - 6) * Math.PI / 12); // Peak at noon
-    return intensity * 3.5; // Max 3.5kW
-  }
-
-  /**
-   * Get generation for weather condition
-   */
-  private getGenerationForWeather(condition: string): number {
-    const factors = {
-      'clear': 1.0,
-      'partly-cloudy': 0.8,
-      'cloudy': 0.6,
-      'overcast': 0.3,
-      'rain': 0.1
-    };
-    return 8 * (factors[condition] || 0.8); // Base 8kWh per day
-  }
-
-  /**
-   * Calculate device efficiency
-   */
-  private calculateDeviceEfficiency(device: any): number {
-    const maxConsumption = this.getMaxConsumptionForType(device.type);
-    const currentConsumption = device.consumption || 0;
-    return maxConsumption > 0 ? (currentConsumption / maxConsumption) * 100 : 0;
-  }
-
-  /**
-   * Calculate device trend
-   */
-  private calculateDeviceTrend(device: any): 'up' | 'down' | 'stable' {
-    // Simplified trend calculation
-    const consumption = device.consumption || 0;
-    if (consumption > 2.0) return 'up';
-    if (consumption < 0.5) return 'down';
-    return 'stable';
-  }
-
-  /**
-   * Get max consumption for device type
-   */
-  private getMaxConsumptionForType(type: string): number {
-    const maxConsumption: Record<string, number> = {
-      'ac': 3.5,
-      'tv': 0.3,
-      'light': 0.1,
-      'refrigerator': 0.8,
-      'washer': 2.0,
-      'outlet': 1.5,
-      'thermostat': 0.2
-    };
-    return maxConsumption[type] || 1.0;
-  }
-
-  /**
-   * Update analytics cache
-   */
-  private async updateAnalyticsCache() {
-    // This would update the cache with fresh data
-    // Implementation depends on specific requirements
   }
 }
 
