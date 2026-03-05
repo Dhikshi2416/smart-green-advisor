@@ -25,6 +25,7 @@ const Index = () => {
   const [solarPanels, setSolarPanels] = useState<SolarPanelData[]>([]);
   const [solarGeneration, setSolarGeneration] = useState(0);
   const [isConnecting, setIsConnecting] = useState(false);
+  const [chartData, setChartData] = useState<Array<{ time: string; consumption: number; solar: number }>>([]);
 
   // Auth check
   useEffect(() => {
@@ -37,7 +38,6 @@ const Index = () => {
       }
       setIsLoading(false);
     };
-
     checkAuth();
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
@@ -47,7 +47,6 @@ const Index = () => {
         setUser(session.user);
       }
     });
-
     return () => subscription.unsubscribe();
   }, [navigate]);
 
@@ -55,7 +54,6 @@ const Index = () => {
   useEffect(() => {
     if (!user) return;
 
-    // Set up real-time device listeners
     const handleDeviceUpdate = (connectedDevices: RealTimeDevice[]) => {
       setDevices(connectedDevices);
     };
@@ -66,12 +64,8 @@ const Index = () => {
       setSolarGeneration(totalGeneration);
     };
 
-    // Add listeners
     realTimeDeviceService.addDeviceListener(handleDeviceUpdate);
     realTimeSolarService.addSolarListener(handleSolarUpdate);
-
-    // Load existing devices from database
-    loadExistingDevices();
 
     return () => {
       realTimeDeviceService.removeDeviceListener(handleDeviceUpdate);
@@ -79,55 +73,55 @@ const Index = () => {
     };
   }, [user]);
 
-  const loadExistingDevices = async () => {
-    try {
-      const { data, error } = await supabase
-        .from("user_devices")
-        .select("*")
-        .eq("user_id", user?.id)
-        .order("created_at", { ascending: true });
-
-      if (error) throw error;
-
-      // Let the real-time device service handle device management
-      // This just ensures devices are in the database
-    } catch (error) {
-      console.error('Failed to load existing devices:', error);
-      toast({
-        title: "Error",
-        description: "Failed to load existing devices",
-        variant: "destructive",
-      });
-    }
-  };
-  const [chartData, setChartData] = useState<Array<{ time: string; consumption: number; solar: number }>>([]);
-
-  // Generate initial chart data
+  // Load real chart data from consumption history
   useEffect(() => {
-    const generateChartData = () => {
-      const data = [];
-      const now = new Date();
-      for (let i = 23; i >= 0; i--) {
-        const hour = new Date(now.getTime() - i * 60 * 60 * 1000);
-        const hourStr = hour.getHours().toString().padStart(2, '0') + ':00';
-        const consumption = Math.random() * 3 + 2;
-        const solar = hour.getHours() >= 6 && hour.getHours() <= 18 
-          ? Math.random() * 4 + 1 
-          : 0;
-        data.push({ time: hourStr, consumption, solar });
-      }
-      return data;
-    };
-    setChartData(generateChartData());
-  }, []);
+    if (!user) return;
 
-  // Real-time solar generation is handled by the solar service
+    const loadChartData = async () => {
+      const now = new Date();
+      const startOfDay = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+
+      const { data: historyData } = await supabase
+        .from('device_consumption_history')
+        .select('consumption, recorded_at')
+        .eq('user_id', user.id)
+        .gte('recorded_at', startOfDay.toISOString())
+        .order('recorded_at', { ascending: true });
+
+      // Build hourly data from real records
+      const hourlyMap = new Map<string, number>();
+      for (let i = 0; i < 24; i++) {
+        hourlyMap.set(i.toString().padStart(2, '0') + ':00', 0);
+      }
+
+      if (historyData) {
+        for (const record of historyData) {
+          const hour = new Date(record.recorded_at).getHours();
+          const key = hour.toString().padStart(2, '0') + ':00';
+          hourlyMap.set(key, (hourlyMap.get(key) || 0) + Number(record.consumption));
+        }
+      }
+
+      const data = Array.from(hourlyMap.entries()).map(([time, consumption]) => ({
+        time,
+        consumption: Number(consumption.toFixed(2)),
+        solar: 0, // No solar panels connected
+      }));
+
+      setChartData(data);
+    };
+
+    loadChartData();
+    // Refresh chart data every 30 seconds
+    const interval = setInterval(loadChartData, 30000);
+    return () => clearInterval(interval);
+  }, [user]);
 
   const totalConsumption = devices.reduce((sum, device) => 
     sum + (device.isOn ? device.consumption : 0), 0
   );
   const netUsage = Math.max(0, totalConsumption - solarGeneration);
-  const savings = solarGeneration * 6 * 30; // ₹6/kWh * 30 days (average Indian electricity rate)
+  const savings = solarGeneration * 6 * 30;
 
   // Record consumption history periodically
   useEffect(() => {
@@ -147,14 +141,12 @@ const Index = () => {
       }
     };
 
-    // Record consumption every hour
-    const interval = setInterval(recordConsumption, 60 * 60 * 1000);
+    // Record every 5 minutes for real-time tracking
+    const interval = setInterval(recordConsumption, 5 * 60 * 1000);
     return () => clearInterval(interval);
   }, [devices, user]);
 
   const handleDeviceChange = async (deviceId: string, value: number) => {
-    // For real-time devices, consumption is automatically managed
-    // This function is kept for compatibility but consumption is read-only
     toast({
       title: "Info",
       description: "Consumption is automatically monitored in real-time",
@@ -164,10 +156,7 @@ const Index = () => {
   const handleDeviceToggle = useCallback(async (deviceId: string, isOn: boolean) => {
     try {
       setIsConnecting(true);
-      
-      // Use real-time device service to control device
       const success = await realTimeDeviceService.controlDevice(deviceId, { power: isOn });
-      
       if (success) {
         toast({
           title: "Device Updated",
@@ -189,7 +178,6 @@ const Index = () => {
   }, [toast]);
 
   const handleDeviceRemoved = () => {
-    // Refresh devices from real-time service
     const connectedDevices = realTimeDeviceService.getConnectedDevices();
     setDevices(connectedDevices);
   };
@@ -210,36 +198,14 @@ const Index = () => {
     );
   }
 
-  const recommendations = [
-    {
-      id: "1",
-      title: "Optimize AC Usage",
-      description: "Your AC is consuming peak power during solar generation hours. Consider increasing usage between 10 AM - 3 PM when solar is abundant.",
-      savings: "₹1,840/month",
-      priority: "high" as const,
-    },
-    {
-      id: "2",
-      title: "Schedule Heavy Appliances",
-      description: "Run washing machine and dishwasher during peak solar hours to maximize renewable energy usage.",
-      savings: "₹1,200/month",
-      priority: "medium" as const,
-    },
-    {
-      id: "3",
-      title: "Smart Lighting Adjustment",
-      description: "Reduce lighting by 20% during evening hours. Your current usage is 15% above optimal levels.",
-      savings: "₹640/month",
-      priority: "low" as const,
-    },
-  ];
+  // Generate dynamic recommendations based on real device data
+  const recommendations = generateRecommendations(devices, totalConsumption, solarGeneration);
 
   const devicesWithHandlers = devices.map(device => ({
     ...device,
     icon: getDeviceIcon(device.type),
     onConsumptionChange: (value: number) => handleDeviceChange(device.id, value),
     onToggle: (isOn: boolean) => handleDeviceToggle(device.id, isOn),
-    // Real-time device properties
     isConnected: device.isConnected,
     status: device.status,
     connectionType: device.connectionType,
@@ -270,8 +236,8 @@ const Index = () => {
               </div>
             </div>
             <div className="flex items-center gap-4 animate-fade-in" style={{ animationDelay: "0.2s" }}>
-              <div className="flex items-center gap-2 px-4 py-2 rounded-lg bg-solar/10 border border-solar/20 animate-pulse-glow hover-lift">
-                <Sun className="h-5 w-5 text-solar animate-rotate-slow" />
+              <div className="flex items-center gap-2 px-4 py-2 rounded-lg bg-solar/10 border border-solar/20 hover-lift">
+                <Sun className="h-5 w-5 text-solar" />
                 <span className="text-sm font-medium">Solar: {solarGeneration.toFixed(1)} kW</span>
               </div>
               <Button variant="outline" size="sm" onClick={handleSignOut} className="hover-lift">
@@ -317,11 +283,12 @@ const Index = () => {
                 solarGeneration={solarGeneration}
                 netUsage={netUsage}
                 savings={savings}
+                devicesCount={devices.filter(d => d.isOn).length}
               />
             </div>
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 animate-slide-up" style={{ animationDelay: "0.1s" }}>
               <div className="lg:col-span-2">
-                <EnergyChart data={chartData} />
+                <EnergyChart data={chartData} hasDevices={devices.length > 0} />
               </div>
               <VoiceAssistant 
                 devices={devices} 
@@ -351,7 +318,7 @@ const Index = () => {
                 <DeviceList devices={devicesWithHandlers} onDeviceRemoved={handleDeviceRemoved} />
               </div>
               <div className="animate-scale-in" style={{ animationDelay: "0.1s" }}>
-                <EnergyChart data={chartData} />
+                <EnergyChart data={chartData} hasDevices={devices.length > 0} />
               </div>
             </div>
           </TabsContent>
@@ -365,9 +332,7 @@ const Index = () => {
           <TabsContent value="advisor" className="space-y-6">
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
               <div className="animate-slide-up">
-                <AIRecommendations 
-                  recommendations={recommendations}
-                />
+                <AIRecommendations recommendations={recommendations} />
               </div>
               <div className="animate-slide-up" style={{ animationDelay: "0.1s" }}>
                 <VoiceAssistant 
@@ -386,5 +351,76 @@ const Index = () => {
     </div>
   );
 };
+
+/**
+ * Generate recommendations dynamically from real device data
+ */
+function generateRecommendations(devices: RealTimeDevice[], totalConsumption: number, solarGeneration: number) {
+  const recommendations: Array<{
+    id: string;
+    title: string;
+    description: string;
+    savings: string;
+    priority: 'high' | 'medium' | 'low';
+  }> = [];
+
+  if (devices.length === 0) {
+    recommendations.push({
+      id: "no-devices",
+      title: "Connect Your Devices",
+      description: "No devices are connected yet. Add your smart home devices to start monitoring energy consumption in real-time.",
+      savings: "₹0/month",
+      priority: "high",
+    });
+    return recommendations;
+  }
+
+  const activeDevices = devices.filter(d => d.isOn);
+  const activeCount = activeDevices.length;
+
+  if (totalConsumption > 3.0) {
+    recommendations.push({
+      id: "high-consumption",
+      title: "High Energy Consumption Alert",
+      description: `You have ${activeCount} devices consuming ${totalConsumption.toFixed(1)} kW. Consider turning off non-essential devices to reduce costs.`,
+      savings: `₹${(totalConsumption * 0.3 * 8.5 * 30).toFixed(0)}/month`,
+      priority: "high",
+    });
+  }
+
+  const acDevices = activeDevices.filter(d => d.type === 'ac');
+  if (acDevices.length > 0) {
+    const acConsumption = acDevices.reduce((s, d) => s + d.consumption, 0);
+    recommendations.push({
+      id: "ac-optimize",
+      title: "Optimize AC Usage",
+      description: `${acDevices.length} AC unit(s) consuming ${acConsumption.toFixed(1)} kW. Increase temperature by 2°C to save 15% on cooling.`,
+      savings: `₹${(acConsumption * 0.15 * 8.5 * 30).toFixed(0)}/month`,
+      priority: "medium",
+    });
+  }
+
+  if (solarGeneration === 0 && totalConsumption > 0) {
+    recommendations.push({
+      id: "solar-suggestion",
+      title: "Consider Solar Panels",
+      description: `You're using ${totalConsumption.toFixed(1)} kW entirely from the grid. Installing solar panels could offset your consumption significantly.`,
+      savings: `₹${(totalConsumption * 0.6 * 8.5 * 30).toFixed(0)}/month`,
+      priority: "medium",
+    });
+  }
+
+  if (activeCount > 0 && totalConsumption <= 3.0) {
+    recommendations.push({
+      id: "efficient",
+      title: "Good Energy Efficiency",
+      description: `Your ${activeCount} active device(s) are consuming ${totalConsumption.toFixed(1)} kW, which is within optimal range. Keep it up!`,
+      savings: "Optimized",
+      priority: "low",
+    });
+  }
+
+  return recommendations;
+}
 
 export default Index;

@@ -1,6 +1,6 @@
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
-import { Sun, Cloud, Zap, TrendingUp } from "lucide-react";
+import { Sun, Cloud, Zap, TrendingUp, AlertTriangle } from "lucide-react";
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 
 interface SolarPanelSimulationProps {
@@ -9,10 +9,9 @@ interface SolarPanelSimulationProps {
 }
 
 export const SolarPanelSimulation = ({ solarGeneration, chartData }: SolarPanelSimulationProps) => {
-  const maxCapacity = 5.0; // 5kW max capacity
-  const efficiency = (solarGeneration / maxCapacity) * 100;
-  const hour = new Date().getHours();
-  const isDaytime = hour >= 6 && hour <= 18;
+  const maxCapacity = 5.0;
+  const efficiency = maxCapacity > 0 ? (solarGeneration / maxCapacity) * 100 : 0;
+  const hasSolarPanels = solarGeneration > 0;
 
   const dailyProduction = chartData
     .filter(d => d.solar > 0)
@@ -20,6 +19,23 @@ export const SolarPanelSimulation = ({ solarGeneration, chartData }: SolarPanelS
 
   return (
     <div className="space-y-6">
+      {/* No Solar Panels Message */}
+      {!hasSolarPanels && (
+        <Card className="border-dashed border-2 border-muted-foreground/30">
+          <CardContent className="pt-6">
+            <div className="flex flex-col items-center text-center py-8 space-y-4">
+              <AlertTriangle className="h-12 w-12 text-muted-foreground" />
+              <div>
+                <h3 className="text-lg font-semibold">No Solar Panels Connected</h3>
+                <p className="text-muted-foreground mt-2 max-w-md">
+                  Connect your solar panel system to see real-time generation data, efficiency metrics, and savings calculations.
+                </p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
       {/* Status Card */}
       <Card className="bg-gradient-subtle border-solar/20">
         <CardHeader>
@@ -29,7 +45,9 @@ export const SolarPanelSimulation = ({ solarGeneration, chartData }: SolarPanelS
                 <Sun className="h-5 w-5 text-solar" />
                 Solar Panel Status
               </CardTitle>
-              <CardDescription>Real-time solar energy generation</CardDescription>
+              <CardDescription>
+                {hasSolarPanels ? 'Real-time solar energy generation' : 'Waiting for solar panel connection'}
+              </CardDescription>
             </div>
             <div className="text-right">
               <div className="text-3xl font-bold text-solar">{solarGeneration.toFixed(2)} kW</div>
@@ -49,10 +67,10 @@ export const SolarPanelSimulation = ({ solarGeneration, chartData }: SolarPanelS
           <div className="grid grid-cols-2 gap-4">
             <div className="p-3 rounded-lg bg-background/50 border">
               <div className="flex items-center gap-2 mb-1">
-                {isDaytime ? <Sun className="h-4 w-4 text-solar" /> : <Cloud className="h-4 w-4 text-muted-foreground" />}
+                {hasSolarPanels ? <Sun className="h-4 w-4 text-solar" /> : <Cloud className="h-4 w-4 text-muted-foreground" />}
                 <span className="text-sm text-muted-foreground">Status</span>
               </div>
-              <div className="font-semibold">{isDaytime ? "Generating" : "Standby"}</div>
+              <div className="font-semibold">{hasSolarPanels ? "Generating" : "Not Connected"}</div>
             </div>
 
             <div className="p-3 rounded-lg bg-background/50 border">
@@ -70,7 +88,9 @@ export const SolarPanelSimulation = ({ solarGeneration, chartData }: SolarPanelS
       <Card>
         <CardHeader>
           <CardTitle>Solar Generation Pattern</CardTitle>
-          <CardDescription>24-hour solar energy generation</CardDescription>
+          <CardDescription>
+            {hasSolarPanels ? '24-hour solar energy generation' : 'No data — connect solar panels to see generation pattern'}
+          </CardDescription>
         </CardHeader>
         <CardContent>
           <ResponsiveContainer width="100%" height={300}>
@@ -94,11 +114,12 @@ export const SolarPanelSimulation = ({ solarGeneration, chartData }: SolarPanelS
                 }}
               />
               <Line 
-                type="monotone" 
+                type={hasSolarPanels ? "monotone" : "linear"}
                 dataKey="solar" 
                 stroke="hsl(var(--solar))" 
-                strokeWidth={2}
+                strokeWidth={hasSolarPanels ? 2 : 1}
                 dot={false}
+                strokeDasharray={hasSolarPanels ? undefined : "5 5"}
               />
             </LineChart>
           </ResponsiveContainer>
@@ -114,7 +135,7 @@ export const SolarPanelSimulation = ({ solarGeneration, chartData }: SolarPanelS
                 <Sun className="h-5 w-5 text-solar" />
               </div>
               <div>
-                <div className="text-2xl font-bold">{maxCapacity} kW</div>
+                <div className="text-2xl font-bold">{hasSolarPanels ? `${maxCapacity} kW` : '—'}</div>
                 <div className="text-sm text-muted-foreground">Panel Capacity</div>
               </div>
             </div>
@@ -128,7 +149,7 @@ export const SolarPanelSimulation = ({ solarGeneration, chartData }: SolarPanelS
                 <Zap className="h-5 w-5 text-primary" />
               </div>
               <div>
-                <div className="text-2xl font-bold">{(dailyProduction * 30).toFixed(0)} kWh</div>
+                <div className="text-2xl font-bold">{hasSolarPanels ? `${(dailyProduction * 30).toFixed(0)} kWh` : '—'}</div>
                 <div className="text-sm text-muted-foreground">Monthly Est.</div>
               </div>
             </div>
@@ -142,7 +163,7 @@ export const SolarPanelSimulation = ({ solarGeneration, chartData }: SolarPanelS
                 <TrendingUp className="h-5 w-5 text-green-500" />
               </div>
               <div>
-                <div className="text-2xl font-bold">₹{(dailyProduction * 30 * 6).toFixed(0)}</div>
+                <div className="text-2xl font-bold">{hasSolarPanels ? `₹${(dailyProduction * 30 * 6).toFixed(0)}` : '₹0'}</div>
                 <div className="text-sm text-muted-foreground">Monthly Savings</div>
               </div>
             </div>
